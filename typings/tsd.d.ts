@@ -1,0 +1,1 @@
+/// <reference path='applugins/applugins.d.ts' />
