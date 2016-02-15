@@ -2,9 +2,11 @@ import {Component, View} from 'angular2/core';
 
 import {List as _List} from 'ui-components';
 
-console.log('List', List, _List);
-
 export const List = prepare(_List);
+
+import {Button as _Button} from 'ui-components';
+
+export const Button = prepare(_Button);
 
 //import _Paragraph from './Paragraph.jsx';
 //
@@ -23,6 +25,8 @@ function prepare(ctor) {
     const obj = new ctor();
 
     obj.directives = {};
+
+    console.log('PREPARE', obj);
 
     const template = obj.render();
 

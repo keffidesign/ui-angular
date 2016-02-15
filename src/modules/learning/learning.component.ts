@@ -1,5 +1,6 @@
 import {Component, View} from 'angular2/core';
 import {List} from '../ui';
+import {Button} from '../ui';
 
 @Component({
     selector: 'learning-component'
@@ -7,10 +8,13 @@ import {List} from '../ui';
 
 @View({
     template: `
-        <h1>Learning Component</h1>
-        <list [dataFrom]="'storage://list'"></list>
+        <h1>Tasks</h1>
+        <ui-list [dataFrom]="'learning://list'" [dataDependsOn]="'learning://changed'"></ui-list>
+        <ui-button [props]="{caption: 'New', action: 'learning://create'}"></ui-button>
     `,
-    directives: [List]
+    directives: [List, Button]
 })
 
-export class LearningComponent {}
+export class LearningComponent {
+
+}

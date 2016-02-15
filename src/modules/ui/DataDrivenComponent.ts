@@ -3,6 +3,7 @@ import BaseComponent from './BaseComponent.ts';
 
 export default class DataDrivenComponent extends BaseComponent {
 
+    @Input() props;
     @Input() dataFrom: String;
     @Input() dataDependsOn: String;
 
@@ -64,6 +65,8 @@ export default class DataDrivenComponent extends BaseComponent {
     }
 
     setData(data) {
+
+        console.log('setData', data);
 
         this.data = data;
 

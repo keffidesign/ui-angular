@@ -1,16 +1,30 @@
+import {Input} from 'angular2/core';
 import {event} from 'applugins';
+
+const EXCEPTIONAL_NOUNS = {
+    data: 'datum'
+};
 
 export default class BaseComponent {
 
+    data = [
+        {
+            id: '1',
+            name: 'task #1'
+        }
+    ]
+
     render() {}
 
-    createElement(type: string, props: any[], ...children: any[]) {
+    createElement(type: string, props: any, ...children: any[]) {
 
         const typeResolved = this.resolveType(type);
 
-        children = (typeof children === 'string') ? children : (children || []).join('');
+        const childrenResolved = this.resolveChildren(children);
 
-        const result = `<${typeResolved} ${(Object.keys(props || {})).map(p => this.resolveProp(p, props[p])).join(' ')}>${children}</${typeResolved}>`
+        const propsResolved = Object.keys(props || {}).map(p => this.resolveProp(p, props[p]));
+
+        const result = `<${typeResolved} ${propsResolved.join(' ')}>${childrenResolved}</${typeResolved}>`;
 
         console.log('createElement', result);
 
@@ -22,12 +36,9 @@ export default class BaseComponent {
 
         if (type && (type.prototype instanceof BaseComponent)) {
 
-
             const name = type.name.replace(/Component$/, '').match(/[A-Z][a-z0-9]+/g).join('-').toLowerCase();
 
-
             this.directives[name] = type;
-
 
             return name;
 
@@ -39,18 +50,86 @@ export default class BaseComponent {
 
     resolveProp(key: string, value: any) {
 
-        if (key.startsWith('on')) return `(${key.substring(2).toLowerCase()})="${value}()"`;
+        if (key.startsWith('on')) return `(${key.substring(2).toLowerCase()})="actionHandler(${value.slice(2, -1)})"`;
 
-        if (key === 'ngFor') return `*${key}="${value}"`;
+        if (key === 'each') return this.resolveEachDirective(value);
+
+        if (key === 'if') return `*ngIf="${value}()"`;
 
         return `[${key}]="${value}"`;
 
     }
 
+    resolveChildren(children) {
 
+        return children.map(c => this.resolveChild(c)).join('');
 
+    }
+
+    resolveChild(child) {
+
+        return (typeof child !== 'string')? (child || []).join('') : this.resolvePlaceholders(child);
+
+    }
+
+    resolvePlaceholders(str) {
+
+        /**
+         * Select with #[<...>] placeholder
+         */
+        const selector = /#\[(\w|[\(\)\,\s\.])+\]/g;
+
+        return str.replace(selector, p => {
+
+            let path = p.slice(2, -1);
+
+            path = (this.resolvePathType(path) === 'function') ? `${path}()` : path;
+
+            return `{{${path}}}`
+
+        });
+
+    }
+
+    resolvePathType(path: string) {
+
+        return typeof path
+            .split('.')
+            .reduce((s, p) => s[p] || {}, this);
+
+    }
+
+    actionHandler(value) {
+
+        console.log('actionHandler', value);
+
+        this.event(value).emit();
+
+    }
+
+    resolveEachDirective(value) {
+
+        const [scopeId, operator = 'of', dataId = scopeId] = value.split(' ');
+
+        if (scopeId === dataId) {
+
+            scopeId = EXCEPTIONAL_NOUNS[dataId] || dataId.slice(0, -1);
+
+            scopeId = scopeId.split('.').pop();
+
+        }
+
+        console.log('resolve each directive', dataId, this.resolvePathType(dataId));
+
+        if (this.resolvePathType(dataId) === 'function') dataId = `${dataId}()`;
+
+        return `*ngFor="#${[scopeId, operator, dataId].join(' ')}"`;
+
+    }
 
     ngOnInit(...args) {
+
+        console.log('BaseComponent:ngOnInit', this);
 
     }
 
@@ -65,7 +144,6 @@ export default class BaseComponent {
         console.log('BaseComponent:ngAfterViewInit', ...args);
 
         console.log('ngAfterViewInit', this, this.loader);
-
 
     }
 
