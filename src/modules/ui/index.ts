@@ -1,47 +1,49 @@
-import {Component, View} from 'angular2/core';
+import {Component, View, Input} from 'angular2/core';
 
-import {List as _List} from 'ui-components';
+import {BaseComponent as _BaseComponent} from 'ui-components';
 
-export const List = prepare(_List);
+import {default as AngularPrototype} from './AngularPrototype';
+
+const resolveType = (type: any, directives) => {
+
+    if (type && (type.prototype instanceof BaseComponent)) {
+
+        const name = type.name.replace(/Component$/, '').match(/[A-Z][a-z0-9]+/g).join('-').toLowerCase();
+
+        directives[name] = type;
+
+        return name;
+
+    }
+
+    return type;
+
+};
+
+export const BaseComponent = _BaseComponent;
 
 import {Button as _Button} from 'ui-components';
 
 export const Button = prepare(_Button);
 
-//import _Paragraph from './Paragraph.jsx';
-//
-//export const Paragraph = prepare(_Paragraph);
-//
-//import _List from './List.jsx';
-//
-//export const List = prepare(_List);
-//
-//import _Title from './Title.jsx';
-//
-//export const Title = prepare(_Title);
+import {List as _List} from 'ui-components';
+
+export const List = prepare(_List);
 
 function prepare(ctor) {
 
-    const obj = new ctor();
+    Object.assign(_BaseComponent.prototype, AngularPrototype);
 
-    obj.directives = {};
-
-    console.log('PREPARE', obj);
-
-    const template = obj.render();
-
-    const directives = Object.keys(obj.directives).map((key) => obj.directives[key]);
-
-    console.log('selector', obj.resolveType(ctor), directives, obj.directives, template);
-
-    var annotations = [
+    const annotations = [
         new Component({
-            selector: obj.resolveType(ctor)
+            selector: resolveType(ctor, ctor.prototype.directives)
+            ,
+            inputs: ['props', 'dataFrom', 'dataDependsOn']
         }),
         new View({
-            template
+            template: ctor.prototype.render()
             ,
-            directives
+            directives: Object.keys(ctor.prototype.directives).map(key => ctor.prototype.directives[key])
         })
     ];
 
@@ -50,3 +52,4 @@ function prepare(ctor) {
     return ctor;
 
 }
+
