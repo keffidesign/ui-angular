@@ -6,8 +6,7 @@ import {ROUTER_DIRECTIVES} from 'angular2/router'
     directives: [ROUTER_DIRECTIVES],
     template: `
     <nav>
-      <a *ngFor="#route of routes"
-        [routerLink]="route.path">
+      <a *ngFor="#route of routes" [routerLink]="route.path">
         {{route.name}}
       </a>
     </nav>

@@ -17,7 +17,7 @@ export default class UiPlugin extends Plugin {
 
         this.dynamicRouteConfigurator = new DynamicRouteConfigurator();
 
-        console.log('dynamicRouteConfigurator', dynamicRouteConfigurator);
+        //console.log('dynamicRouteConfigurator', dynamicRouteConfigurator);
 
     }
 
@@ -34,7 +34,7 @@ export default class UiPlugin extends Plugin {
                     //DynamicComponentLoader
                 ]);
 
-                console.log('Pages', pages, pages.map(p => ({path: `/${p.id}`, as: p.id, component: p.component})));
+                //console.log('Pages', pages, pages.map(p => ({path: `/${p.id}`, as: p.id, component: p.component})));
 
                 console.log(pages.map(p => this.addRoute({path: `/${p.id}`, as: p.id, component: p.component})));
 
@@ -44,9 +44,25 @@ export default class UiPlugin extends Plugin {
 
     }
 
+    onNavigation_list(ev) {
+
+        return [
+            {
+                id: 'practice',
+                caption: 'Practice'
+            }
+            ,
+            {
+                id: 'stats',
+                caption: 'Statistic'
+            }
+        ]
+
+    }
+
     public addRoute(route): void {
 
-        console.log('addRoute', route);
+        //console.log('addRoute', route);
 
         //let route = { path: '/info', component: InfoComponent, as: 'Info' };
         this.dynamicRouteConfigurator.addRoute(ViewportComponent, route);

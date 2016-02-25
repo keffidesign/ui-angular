@@ -4,15 +4,21 @@ const EXCEPTIONAL_NOUNS = {
     data: 'datum'
 };
 
-<div>
-{
-    data.map(d => <Button/>);
-}
-</div>
+String.capitalize = function(string) {
+
+    return string.charAt(0).toUpperCase() + string.slice(1);
+
+};
+
+const isComponent = (type) => {
+
+    return type && type.prototype instanceof BaseComponent;
+
+};
 
 const resolveType = (type: any, directives) => {
 
-    if (!type || !(type.prototype instanceof BaseComponent)) return type;
+    if (!isComponent(type)) return type;
 
     const name = type.name.replace(/Component$/, '').match(/[A-Z][a-z0-9]+/g).join('-').toLowerCase();
 
@@ -34,44 +40,118 @@ const resolveChild = function(child) {
 
 };
 
-const resolvePlaceholders = function(str) {
+const resolveProps = function(props, isComponent) {
 
-    /**
-     * Select with #[<...>] placeholder
-     */
-    const selector = /#\[(\w|[\(\)\,\s\.])+\]/g;
+    if (!isComponent) return Object.keys(props || {}).map(p => resolveProp.call(this, p, props[p]));
 
-    return str.replace(selector, p => {
-
-        let path = p.slice(2, -1);
-
-        path = (resolvePathType.call(this, path) === 'function') ? `${path}()` : path;
-
-        return `{{${path}}}`
-
-    });
-
-};
-
-const resolvePathType = function(path: string) {
-
-    return typeof path
-        .split('.')
-        .reduce((s, p) => s[p] || {}, this);
+    return resolveComponentProps.call(this, props);
 
 };
 
 const resolveProp = function(key: string, value: any) {
 
-    console.log('resolveProp123', this);
+    if (key.startsWith('on')) return `(${key.substring(2).toLowerCase()})="${value}($event)"`;
 
-    if (key.startsWith('on')) return `(${key.substring(2).toLowerCase()})="actionHandler(${value.slice(2, -1)})"`;
+    //if (key.startsWith('on')) return `(${key.substring(2).toLowerCase()})="actionHandler($event, ${value})"`;
 
     if (key === 'each') return resolveEachDirective.call(this, value);
 
     if (key === 'if') return `*ngIf="${value}()"`;
 
-    return `[${key}]="${value}"`;
+    if (key === 'className') return `class="${value}"`;
+
+    //return {key: key, value: resolvePath(value)};
+
+    const resolvedPath = resolvePath.call(this, value);
+
+    if (/[\(\)\.]/.test(resolvedPath)) return `${key}="{{${resolvedPath}}}"`
+
+    return `${key}="${resolvePath.call(this, value)}"`;
+
+};
+
+const resolveComponentProps = function(props) {
+
+    //console.log('resolveComponentProps', props, Object.keys(props || {}));
+
+    let propsObj = {};
+
+    const newProps1 = [];
+
+    const newProps = Object.keys(props || {}).reduce((r, p) => {
+
+        const key = p,
+            value = props[p];
+
+        if (key.startsWith('on')) {
+
+            propsObj[key] = `${value}.bind(__component__)`;
+
+        } else if (key === 'each') {
+
+            r.push(resolveEachDirective.call(this, value));
+
+        } else if (key === 'if') {
+
+            r.push(`*ngIf="${value}()"`);
+
+        } else if (key === 'className') {
+
+            r.push(`class="${value}"`);
+
+        } else {
+
+            propsObj[key] = resolvePath.call(this, value);
+
+        }
+
+        return r;
+
+    }, []);
+
+    const result = Object.keys(propsObj || {}).map(p => `${p}: ${propsObj[p]}`);
+
+    newProps.push(`[props]='{${result.join(', ')}}'`);
+
+    return newProps;
+
+};
+
+const resolvePlaceholders = function(str) {
+
+    /**
+     * Select with #[<...>] placeholder
+     */
+    const selector = /#\[(\w|[\[\]\(\)\,\s\.])+\]/g;
+
+    return str.replace(selector, p => `{{${resolvePath.call(this, p.slice(2, -1))}}}`);
+
+};
+
+const resolvePath = function(path: string) {
+
+    const tokens = [];
+
+    path
+        .split('.')
+        .reduce((s, p) => {
+
+            if (s == undefined || !s[`get${String.capitalize(p)}`]) {
+
+                tokens.push(p);
+
+                return s && s[p];
+
+            }
+
+            tokens.push(`get${String.capitalize(p)}()`);
+
+
+        }, this);
+
+    //console.log('resolvePath', tokens.join('.'), path);
+
+    return tokens.join('.') || path;
 
 };
 
@@ -87,11 +167,17 @@ const resolveEachDirective = function(value) {
 
     }
 
-    console.log('resolve each directive', dataId, this);
-
-    if (resolvePathType.call(this, dataId) === 'function') dataId = `${dataId}()`;
+    dataId = resolvePath.call(this, dataId);
 
     return `*ngFor="#${[scopeId, operator, dataId].join(' ')}"`;
+
+};
+
+const stringifyComponent = function({type, props, children}) {
+
+    if (~['input'].indexOf(type)) return `<${type} ${props.join(' ')}>`;
+
+    return `<${type} ${props.join(' ')}>${children}</${type}>`;
 
 };
 
@@ -109,39 +195,47 @@ export default {
 
         const childrenResolved = resolveChildren.call(this, children);
 
-        const propsResolved = Object.keys(props || {}).map(p => resolveProp.call(this, p, props[p]));
+        const propsResolved = resolveProps.call(this, props, isComponent(type));
 
-        const result = `<${typeResolved} ${propsResolved.join(' ')}>${childrenResolved}</${typeResolved}>`;
-
-        console.log('createElement', result);
+        const result = stringifyComponent({type: typeResolved, props: propsResolved, children: childrenResolved});
 
         return result;
 
     }
     ,
+    /**
+     * Lifecycle hooks binding
+     */
     ngOnInit: function() {
+
+        /**
+         * Super.init()
+         */
+        this.init();
 
         const {dataFrom, dataDependsOn} = this;
 
-        if (dataDependsOn) {
+        if (dataDependsOn) this.addEventListener(dataDependsOn, this.setData);
 
-            this.addEventListener(dataDependsOn, this.setData);
+        if (dataFrom) this.event(dataFrom).action((err, result) => this.responseHandler(err, result));
 
-        }
+    }
+    ,
+    ngOnChanges: function() {
 
-        if (dataFrom) {
+        /**
+         * Super.update()
+         */
+        this.update();
 
-            console.log(`DD: ${dataFrom}.`);
+    }
+    ,
+    ngOnDestroy: function() {
 
-            this.event(dataFrom).action((err, result) => {
-
-                console.log(`DD: result ${result}`);
-
-                this.setData(result);
-
-            });
-
-        }
+        /**
+         * Super.done()
+         */
+        this.done();
 
     }
     ,
@@ -163,23 +257,7 @@ export default {
     ,
     setData: function(data) {
 
-        console.log('setData', data);
-
         this.data = data;
-
-    }
-    ,
-    ngAfterContentInit: function(...args) {
-
-        console.log('BaseComponent:ngAfterContentInit', ...args);
-
-    }
-    ,
-    ngAfterViewInit: function(...args) {
-
-        console.log('BaseComponent:ngAfterViewInit', ...args);
-
-        console.log('ngAfterViewInit', this, this.loader);
 
     }
 
